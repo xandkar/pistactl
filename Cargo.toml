@@ -1,0 +1,22 @@
+[package]
+name = "pistactl"
+version = "0.2.0"
+edition = "2021"
+license-file = "LICENSE"
+repository = "https://github.com/xandkar/pistactl"
+description = "Pista session control"
+keywords = ["dwm", "status bar", "pista", "suckless"]
+categories = ["command-line-utilities"]
+
+[lib]
+path = "src/lib/mod.rs"
+
+[dependencies]
+anyhow = { version = "1.0.71", features = ["backtrace"] }
+clap = { version = "4.3.1", features = ["derive"] }
+expanduser = "1.2.2"
+serde = { version = "1.0.163", features = ["derive"] }
+time = { version = "0.3.21", features = ["macros"] }
+toml = "0.7.4"
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter", "local-time"] }

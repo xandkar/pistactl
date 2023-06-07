@@ -1,6 +1,6 @@
 [pista]
 x11       = true   # Output to X11 root window name (for dwm) instead of stdout.
-log_level = 3      # 0 = none, 1 = error, 2 = warn, 3 = info, 4 = debug.
+log_level = "Info" # "Nothing" | "Error" | "Warn" | "Info" | "Debug"
 separator = "    " # Intersperse between slots in the bar.
 slots = [
     # https://github.com/xandkar/pista-feeds

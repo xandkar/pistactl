@@ -25,7 +25,7 @@ pub struct Cfg {
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Pista {
-    pub log_level: Option<usize>,
+    pub log_level: Option<PistaLogLevel>,
     pub x11: Option<bool>,
     pub interval: Option<f32>,
     pub expiry_character: Option<char>,
@@ -33,6 +33,15 @@ pub struct Pista {
     pub pad_right: Option<String>,
     pub separator: Option<String>,
     pub slots: Vec<Slot>,
+}
+
+#[derive(Debug, Copy, Clone, serde::Deserialize)]
+pub enum PistaLogLevel {
+    Nothing = 0,
+    Error = 1,
+    Warn = 2,
+    Info = 3,
+    Debug = 4,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -122,7 +131,7 @@ impl Pista {
                 .map(|c| vec![format!("-e '{}'", c)])
                 .unwrap_or(vec![]),
             log_level
-                .map(|i| vec![format!("-l {}", i)])
+                .map(|l| vec![format!("-l {}", l as u8)])
                 .unwrap_or(vec![]),
         ]
         .concat()

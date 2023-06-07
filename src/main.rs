@@ -4,7 +4,7 @@ use pistactl::{cli, cmd, logger, tmux::Tmux};
 
 fn main() -> Result<()> {
     let cli = cli::parse();
-    let cfg = &cli.to_cfg()?;
+    let cfg = cli.to_cfg()?;
     logger::init(cfg.debug)?;
     tracing::debug!("cfg: {:#?}", &cfg);
     let mut tmux = Tmux::new(&cfg.sock, &cfg.session);

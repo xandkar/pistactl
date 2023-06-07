@@ -102,7 +102,7 @@ fn start_slots(cfg: &Cfg, tmux: &mut Tmux) -> Result<Vec<String>> {
     let mut pista_slot_specs = Vec::new();
     for (i, s) in std::iter::zip(1.., cfg.pista.slots.iter()) {
         let slot_dir = cfg.slots_fifos_dir.join(i.to_string());
-        let slot_spec = start_slot(&s, &slot_dir, tmux)?;
+        let slot_spec = start_slot(s, &slot_dir, tmux)?;
         pista_slot_specs.push(slot_spec);
     }
     Ok(pista_slot_specs)

@@ -17,7 +17,7 @@ pub fn run(cmd: &str, args: &[&str]) -> Result<()> {
         .ok_or_else(|| anyhow!("Failed to get stderr of: {:?}", cmd))?;
     let mut stderr_str = String::new();
     stderr.read_to_string(&mut stderr_str)?;
-    status.success().then(|| ()).ok_or_else(|| {
+    status.success().then_some(()).ok_or_else(|| {
         let cmd_with_args = [&[cmd][..], args].concat().join(" ");
         anyhow!(
             "Failed to run: {:?}. Code: {}. Stderr: {:?}",

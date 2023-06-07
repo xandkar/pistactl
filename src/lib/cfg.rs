@@ -105,15 +105,15 @@ impl Pista {
                 .map(|i| vec![format!("-i {}", i)])
                 .unwrap_or(vec![]),
             pad_left
-                .clone()
+                .as_ref()
                 .map(|s| vec![format!("-f '{}'", s)])
                 .unwrap_or(vec![]),
             mid_sep
-                .clone()
+                .as_ref()
                 .map(|s| vec![format!("-s '{}'", s)])
                 .unwrap_or(vec![]),
             pad_right
-                .clone()
+                .as_ref()
                 .map(|s| vec![format!("-r '{}'", s)])
                 .unwrap_or(vec![]),
             x11.map(|b| if b { vec!["-x".to_string()] } else { vec![] })

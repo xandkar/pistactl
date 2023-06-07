@@ -13,8 +13,9 @@ pub fn init(debug: bool) -> anyhow::Result<()> {
                 .from_env()?,
         )
         .with_writer(std::io::stderr)
-        .with_file(true)
-        .with_line_number(true)
+        .with_target(debug)
+        .with_file(debug)
+        .with_line_number(debug)
         .with_timer(
             // Specifying format manually instead of just using
             //

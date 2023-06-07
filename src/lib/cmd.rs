@@ -81,17 +81,16 @@ fn remove_slot_pipes(cfg: &Cfg) -> Result<()> {
 }
 
 fn start_slot(s: &cfg::Slot, d: &Path, tmux: &mut Tmux) -> Result<String> {
-    process::run("mkdir", &["-p", &d.to_string_lossy().to_string()])?;
-    let slot_pipe = d.join("out").to_string_lossy().to_string();
+    let slot_pipe = d.join("out");
+    let slot_pipe = slot_pipe.to_string_lossy();
+    let d = d.to_string_lossy();
+    process::run("mkdir", &["-p", &d])?;
     process::run("mkfifo", &[&slot_pipe])?;
     let cmd = format!(
         // TODO Capture stderr and display in exit notification?
         "cd {} && {} > {}; \
         notify-send -u critical 'pista slot exited!' \"{}\n$?\"",
-        d.to_string_lossy().to_string(),
-        &s.cmd,
-        slot_pipe,
-        &s.cmd,
+        d, &s.cmd, slot_pipe, &s.cmd,
     );
     tmux.launch_cmd(&cmd)?;
     let pista_slot_spec = format!("{} {} {}", slot_pipe, s.len, s.ttl);

@@ -1,7 +1,7 @@
 [pista]
-x11       = true   # Output to X11 root window name (for dwm) instead of stdout.
+x11 = true         # Output to X11 root window name (for dwm) instead of stdout.
 log_level = "Info" # "Nothing" | "Error" | "Warn" | "Info" | "Debug"
-separator = "    " # Intersperse between slots in the bar.
+separator = "    " # Widen the gaps between slots in the bar.
 slots = [
     # https://github.com/xandkar/pista-feeds
     {len = 11, ttl =  120, cmd = "pista-feed-upower --prefix '🗲 '"},

@@ -13,7 +13,7 @@ slots = [
     {len = 10, ttl =   -1, cmd = "pista-feed-backlight-laptop"},
     {len = 15, ttl =   -1, cmd = "pista-feed-pulseaudio --prefix '🕪 ' --symbol-mic-on '🎙'"},
     {len = 24, ttl =    5, cmd = "pista-feed-mpd --prefix '(' --postfix ')' --symbol-stop '⏹' --symbol-play '▶'  --symbol-pause '⏸' --pct-when-stream '∞'"},
-    {len =  7, ttl = 1800, cmd = "pista-feed-weather --interval \"$((30 * 60))\" --observatories noaa --noaa-station-id KMHT --noaa-summary-file ~/.pista-out/weather-summary"},
+    {len =  7, ttl = 1800, cmd = "pista-feed-weather --interval \"$((30 * 60))\" --observatories nws --nws-station-id KMHT --nws-summary-file ~/.pista-out/weather-summary"},
     {len = 19, ttl =    2, cmd = "pista-feed-time"},
     {len =  7, ttl =    2, cmd = "pista-feed-x11-keymap --prefix '🖮 '"},
 ]

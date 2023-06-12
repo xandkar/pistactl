@@ -1,9 +1,22 @@
 use anyhow::Result;
 
 #[derive(Debug)]
+pub struct Terminal {
+    session: String,
+    window: usize,
+    pane: usize,
+}
+
+impl std::fmt::Display for Terminal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}.{}", self.session, self.window, self.pane)
+    }
+}
+
+#[derive(Debug)]
 pub struct Tmux {
-    i: usize,
-    n: usize,
+    cur_window: usize,
+    tot_windows: usize,
     sock: String,
     session: String,
 }
@@ -11,11 +24,34 @@ pub struct Tmux {
 impl Tmux {
     pub fn new(sock: &str, session: &str) -> Self {
         Self {
-            i: 0,
-            n: 1,
+            cur_window: 0,
+            tot_windows: 1,
             sock: sock.to_owned(),
             session: session.to_owned(),
         }
+    }
+
+    pub fn new_terminal(&mut self) -> Result<Terminal> {
+        let available = self.tot_windows - self.cur_window;
+        match available {
+            0 => {
+                self.new_window()?;
+                self.tot_windows += 1;
+            }
+            1 => (),
+            n => {
+                tracing::error!("Invalid number of available windows: {}", n);
+                unreachable!()
+            }
+        }
+        let term = Terminal {
+            session: self.session.clone(),
+            window: self.cur_window,
+            pane: 0,
+        };
+        self.cur_window += 1;
+        tracing::debug!("Allocated terminal: {:?}", term);
+        Ok(term)
     }
 
     pub fn status(&self) -> Result<()> {
@@ -42,29 +78,31 @@ impl Tmux {
         self.run(&["attach", "-t", &self.session])
     }
 
-    pub fn launch_cmd(&mut self, cmd: &str) -> Result<()> {
-        match self.n - self.i {
-            0 => self.new_window()?,
-            1 => (),
-            _ => unreachable!(),
-        }
-        self.send_keys(cmd)?;
-        Ok(())
+    /// For safety, launch commands in 2 steps:
+    /// 1. send_text (key lookup disabled);
+    /// 2. send_enter.
+    pub fn send_text(&self, term: &Terminal, text: &str) -> Result<()> {
+        tracing::debug!(
+            "Sending text. Terminal: {:?}. Text: {:?}",
+            term,
+            text
+        );
+        // > The -l flag disables key name lookup and processes the keys as
+        // > literal UTF-8 characters.
+        self.run(&["send-keys", "-t", &term.to_string(), "-l", text])
     }
 
-    fn send_keys(&mut self, cmd: &str) -> Result<()> {
-        let Tmux { i, session, .. } = self;
-        let pane = 0;
-        let target_pane = format!("{}:{}.{}", session, i, pane);
-        self.run(&["send-keys", "-t", &target_pane, cmd, "ENTER"])?;
-        self.i += 1;
-        Ok(())
+    pub fn send_enter(&self, term: &Terminal) -> Result<()> {
+        self.run(&["send-keys", "-t", &term.to_string(), "ENTER"])
     }
 
-    fn new_window(&mut self) -> Result<()> {
-        self.run(&["new-window", "-t", &self.session])?;
-        self.n += 1;
-        Ok(())
+    pub fn send_interrupt(&self, term: &Terminal) -> Result<()> {
+        tracing::debug!("Sending interrupt. Terminal: {:?}", term);
+        self.run(&["send-keys", "-t", &term.to_string(), "^C"])
+    }
+
+    fn new_window(&self) -> Result<()> {
+        self.run(&["new-window", "-t", &self.session])
     }
 
     fn run(&self, args: &[&str]) -> Result<()> {

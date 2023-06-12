@@ -1,6 +1,10 @@
-use std::{fs, path::Path};
+use std::{
+    fs::{self, File},
+    io::{BufRead, BufReader},
+    path::Path,
+};
 
-use anyhow::{Error, Result};
+use anyhow::{anyhow, Error, Result};
 
 use crate::{
     cfg::{self, Cfg},
@@ -29,13 +33,16 @@ pub fn start(cfg: &Cfg, tmux: &mut Tmux) -> Result<()> {
         &cfg.pista.to_arg_str(),
         pista_slot_specs.join(" ")
     );
-    tmux.launch_cmd(&pista_cmd)
+    let term = tmux.new_terminal()?;
+    tmux.send_text(&term, &pista_cmd)?;
+    tmux.send_enter(&term)
 }
 
 pub fn stop(cfg: &Cfg, tmux: &Tmux) -> Result<()> {
     if let Err(err) = tmux.kill_session() {
         tracing::error!("Failure in kill session: {:?}", err);
     }
+    // TODO Just remove the whole slots directory.
     if let Err(err) = remove_slot_pipes(cfg) {
         tracing::error!("Failure in removal of slot pipes: {:?}", err);
     }
@@ -49,7 +56,7 @@ fn is_fifo(path: &Path) -> Result<bool> {
 }
 
 fn remove_slot_pipes(cfg: &Cfg) -> Result<()> {
-    // TODO Maybe just recursively find and delete ALL fifos?
+    // TODO Maybe just recursively find and delete ALL fifos? Just delete dir?
     let dir = cfg.slots_fifos_dir.clone();
     let entries = fs::read_dir(&dir).map_err(|e| {
         Error::from(e).context(format!("Failed to list directory {:?}", &dir))
@@ -80,20 +87,68 @@ fn remove_slot_pipes(cfg: &Cfg) -> Result<()> {
     Ok(())
 }
 
+/// Reads first line from a file.
+fn head(path: &Path) -> Result<String> {
+    match BufReader::new(File::open(path)?).lines().next() {
+        None => Err(anyhow!("FIFO empty and did not block: {:?}", path)),
+        Some(Err(e)) => Err(Error::from(e)),
+        Some(Ok(line)) => Ok(line),
+    }
+}
+
 fn start_slot(s: &cfg::Slot, d: &Path, tmux: &mut Tmux) -> Result<String> {
-    let slot_pipe = d.join("out");
-    let slot_pipe = slot_pipe.to_string_lossy();
+    // TODO Write s.cmd to slot_dir/exe script and execute the script file.
+    // TODO slot_dir/{cmd,out,err}: executable, its stdout and stderr files.
+    //      Logging stdout and stderr can be optional.
+    let slot_pipe_path = d.join("out");
+    let slot_pipe_str = slot_pipe_path.to_string_lossy();
     let d = d.to_string_lossy();
     process::run("mkdir", &["-p", &d])?;
-    process::run("mkfifo", &[&slot_pipe])?;
+    process::run("mkfifo", &[&slot_pipe_str])?;
     let cmd = format!(
         // TODO Capture stderr and display in exit notification?
         "cd {} && {} > {}; \
         notify-send -u critical 'pista slot exited!' \"{}\n$?\"",
-        d, &s.cmd, slot_pipe, &s.cmd,
+        d, &s.cmd, slot_pipe_str, &s.cmd,
     );
-    tmux.launch_cmd(&cmd)?;
-    let pista_slot_spec = format!("{} {} {}", slot_pipe, s.len, s.ttl);
+    let term = tmux.new_terminal()?;
+    tmux.send_text(&term, &cmd)?;
+    tmux.send_enter(&term)?;
+    let slot_len = match s.len {
+        Some(len) => {
+            tracing::info!(
+                "User-defined slot length found: {}, for command: {:?}",
+                len,
+                &s.cmd
+            );
+            len
+        }
+        None => {
+            tracing::warn!(
+                "User-defined slot length NOT found. \
+                Waiting for first line in FIFO: {:?}. \
+                From command: {:?}",
+                &slot_pipe_path,
+                &s.cmd,
+            );
+            let head: String = head(&slot_pipe_path)?;
+            // pista expects length in bytes. String::len already counts bytes,
+            // but I just want to be super-explicit:
+            let len = head.as_bytes().len();
+            tracing::info!(
+                "Read slot length: {}. Restarting command: {:?}",
+                len,
+                &slot_pipe_path
+            );
+            // XXX Restart just in case the cmd's refresh interval is very long
+            //     and the slot will be surprisingly empty.
+            tmux.send_interrupt(&term)?;
+            tmux.send_text(&term, &cmd)?;
+            tmux.send_enter(&term)?;
+            len
+        }
+    };
+    let pista_slot_spec = format!("{} {} {}", slot_pipe_str, slot_len, s.ttl);
     Ok(pista_slot_spec)
 }
 

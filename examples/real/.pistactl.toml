@@ -4,16 +4,16 @@ log_level = "Info" # "Nothing" | "Error" | "Warn" | "Info" | "Debug"
 separator = "    " # Widen the gaps between slots in the bar.
 slots = [
     # https://github.com/xandkar/pista-feeds
-    {len = 11, ttl =  120, cmd = "pista-feed-upower --prefix '🗲 '"},
-    {len =  4, ttl =   10, cmd = "pista-feed-net --prefix 'e ' --interval 2 \"$(ifconfig | grep -o '^e[^:]*')\" eth"},
-    {len =  6, ttl =   10, cmd = "pista-feed-net --prefix 'w ' --interval 2 \"$(iwconfig | grep -v '^lo' | awk '/^[^\\ ]/ {print $1}')\" wifi"},
-    {len =  9, ttl =   10, cmd = "pista-feed-bluetooth"},
-    {len =  6, ttl =   10, cmd = "pista-feed-memory -i 1"},
-    {len =  9, ttl =   10, cmd = "pista-feed-disk / -i 5 --prefix '🖴 '"},
-    {len = 10, ttl =   -1, cmd = "pista-feed-backlight-laptop"},
-    {len = 15, ttl =   -1, cmd = "pista-feed-pulseaudio --prefix '🕪 ' --symbol-mic-on '🎙'"},
-    {len = 24, ttl =    5, cmd = "pista-feed-mpd --prefix '(' --postfix ')' --symbol-stop '⏹' --symbol-play '▶'  --symbol-pause '⏸' --pct-when-stream '∞'"},
-    {len =  7, ttl = 1800, cmd = "pista-feed-weather --interval \"$((30 * 60))\" --observatories nws --nws-station-id KMHT --nws-summary-file ~/.pista-out/weather-summary"},
-    {len = 19, ttl =    2, cmd = "pista-feed-time"},
-    {len =  7, ttl =    2, cmd = "pista-feed-x11-keymap --prefix '🖮 '"},
+    {ttl =  120, cmd = "pista-feed-upower --prefix '🗲 '"},
+    {ttl =   10, cmd = "pista-feed-net --prefix 'e ' --interval 2 \"$(ifconfig | grep -o '^e[^:]*')\" eth"},
+    {ttl =   10, cmd = "pista-feed-net --prefix 'w ' --interval 2 \"$(iwconfig | grep -v '^lo' | awk '/^[^\\ ]/ {print $1}')\" wifi"},
+    {ttl =   10, cmd = "pista-feed-bluetooth"},
+    {ttl =   10, cmd = "pista-feed-memory -i 1"},
+    {ttl =   10, cmd = "pista-feed-disk / -i 5 --prefix '🖴 '"},
+    {ttl =   -1, cmd = "pista-feed-backlight-laptop"},
+    {ttl =   -1, cmd = "pista-feed-pulseaudio --prefix '🕪 ' --symbol-mic-on '🎙'"},
+    {ttl =    5, cmd = "pista-feed-mpd --prefix '(' --postfix ')' --symbol-stop '⏹' --symbol-play '▶'  --symbol-pause '⏸' --pct-when-stream '∞'"},
+    {ttl = 1800, cmd = "pista-feed-weather --interval \"$((30 * 60))\" --observatories nws --nws-station-id KMHT --nws-summary-file ~/.pista-out/weather-summary"},
+    {ttl =    2, cmd = "pista-feed-time"},
+    {ttl =    2, cmd = "pista-feed-x11-keymap --prefix '🖮 '"},
 ]

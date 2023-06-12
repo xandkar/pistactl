@@ -46,7 +46,7 @@ pub enum PistaLogLevel {
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Slot {
-    pub len: usize,
+    pub len: Option<usize>,
     pub ttl: i32,
     pub cmd: String,
 }

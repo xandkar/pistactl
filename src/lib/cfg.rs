@@ -5,6 +5,7 @@ mod file {
         pub sock_name: Option<String>,
         pub session: Option<String>,
         pub slots_fifos_dir: Option<String>,
+        pub notifications: Option<super::Notifications>,
         pub pista: Option<super::Pista>,
     }
 }
@@ -21,6 +22,14 @@ pub struct Cfg {
     pub session: String,
     pub slots_fifos_dir: PathBuf,
     pub pista: Pista,
+    pub notifications: Notifications,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct Notifications {
+    pub log_lines_limit: usize,
+    pub width_limit: usize,
+    pub indent: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -46,9 +55,13 @@ pub enum PistaLogLevel {
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Slot {
+    pub name: Option<String>,
     pub len: Option<usize>,
     pub ttl: i32,
     pub cmd: String,
+
+    #[serde(default = "default_interpreter")]
+    pub interpreter: PathBuf,
 }
 
 impl Cfg {
@@ -71,6 +84,9 @@ impl Cfg {
                     Some(d) => expanduser(d)?,
                 }
             },
+            notifications: file
+                .notifications
+                .unwrap_or(default.notifications),
             pista: file.pista.unwrap_or(default.pista),
         };
         Ok(cfg)
@@ -83,6 +99,11 @@ impl Cfg {
             sock: name.to_string(),
             session: name.to_string(),
             slots_fifos_dir: expanduser(format!("~/.{}/slots", name))?,
+            notifications: Notifications {
+                log_lines_limit: 10,
+                width_limit: 150,
+                indent: "    ".to_string(),
+            },
             pista: Pista {
                 interval: None,
                 pad_left: None,
@@ -137,4 +158,8 @@ impl Pista {
         .concat()
         .join(" ")
     }
+}
+
+fn default_interpreter() -> PathBuf {
+    PathBuf::from("/bin/bash")
 }

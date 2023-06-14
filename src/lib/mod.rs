@@ -1,10 +1,12 @@
 pub mod cli;
 pub mod cmd;
+pub mod fs;
 pub mod logger;
 pub mod tmux;
 
 mod cfg;
 mod process;
+mod scripts;
 
 #[macro_export]
 macro_rules! NAME {

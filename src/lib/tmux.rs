@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::Result;
 
 #[derive(Debug)]
@@ -16,7 +18,6 @@ impl std::fmt::Display for Terminal {
 #[derive(Debug)]
 pub struct Tmux {
     cur_window: usize,
-    tot_windows: usize,
     sock: String,
     session: String,
 }
@@ -25,31 +26,31 @@ impl Tmux {
     pub fn new(sock: &str, session: &str) -> Self {
         Self {
             cur_window: 0,
-            tot_windows: 1,
             sock: sock.to_owned(),
             session: session.to_owned(),
         }
     }
 
-    pub fn new_terminal(&mut self) -> Result<Terminal> {
-        let available = self.tot_windows - self.cur_window;
-        match available {
-            0 => {
-                self.new_window()?;
-                self.tot_windows += 1;
-            }
-            1 => (),
-            n => {
-                tracing::error!("Invalid number of available windows: {}", n);
-                unreachable!()
-            }
+    pub fn zeroth_terminal(&mut self) -> Terminal {
+        Terminal {
+            session: self.session.clone(),
+            window: 0,
+            pane: 0,
         }
+    }
+
+    pub fn new_terminal(
+        &mut self,
+        working_directory: &Path,
+        name: &str,
+    ) -> Result<Terminal> {
+        self.new_window(working_directory, name)?;
+        self.cur_window += 1;
         let term = Terminal {
             session: self.session.clone(),
             window: self.cur_window,
             pane: 0,
         };
-        self.cur_window += 1;
         tracing::debug!("Allocated terminal: {:?}", term);
         Ok(term)
     }
@@ -66,8 +67,21 @@ impl Tmux {
         self.run(&["list-windows", "-a"])
     }
 
-    pub fn new_session(&self) -> Result<()> {
-        self.run(&["new-session", "-d", "-s", &self.session])
+    #[rustfmt::skip] // I want each option-value pair on the same line.
+    pub fn new_session(&self, working_directory: &Path) -> Result<()> {
+        let working_directory = working_directory.to_string_lossy();
+        self.run(&[
+            "new-session",
+            "-d", // Start detached from the current terminal.
+            "-c", &working_directory,
+            "-s", &self.session,
+        ])?;
+        let s = self.session.as_str();
+
+        // Prevent window names from dynamically changing:
+        self.run(&["set-option", "-g", "-t", s, "allow-rename", "off"])?;
+
+        Ok(())
     }
 
     pub fn kill_session(&self) -> Result<()> {
@@ -101,8 +115,15 @@ impl Tmux {
         self.run(&["send-keys", "-t", &term.to_string(), "^C"])
     }
 
-    fn new_window(&self) -> Result<()> {
-        self.run(&["new-window", "-t", &self.session])
+    #[rustfmt::skip] // I want each option-value pair on the same line.
+    fn new_window(&self, working_directory: &Path, name: &str) -> Result<()> {
+        let working_directory = working_directory.to_string_lossy();
+        self.run(&[
+            "new-window",
+            "-c", &working_directory,
+            "-n", name,
+            "-t", &self.session,
+        ])
     }
 
     fn run(&self, args: &[&str]) -> Result<()> {

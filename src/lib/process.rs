@@ -8,8 +8,7 @@ pub fn run(cmd: &str, args: &[&str]) -> Result<()> {
         .stderr(std::process::Stdio::piped())
         .spawn()
         .map_err(|e| {
-            Error::from(e)
-                .context(format!("Failed to spawn {cmd:?} {args:?}"))
+            Error::from(e).context(format!("Failed to spawn {cmd:?} {args:?}"))
         })?;
     let status = &child.wait()?;
     let mut stderr = child

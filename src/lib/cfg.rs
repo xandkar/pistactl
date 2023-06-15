@@ -84,9 +84,7 @@ impl Cfg {
                     Some(d) => expanduser(d)?,
                 }
             },
-            notifications: file
-                .notifications
-                .unwrap_or(default.notifications),
+            notifications: file.notifications.unwrap_or(default.notifications),
             pista: file.pista.unwrap_or(default.pista),
         };
         Ok(cfg)

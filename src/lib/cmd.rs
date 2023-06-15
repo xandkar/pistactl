@@ -144,10 +144,7 @@ fn start_slot(
         writeln!(
             run,
             "{}",
-            scripts::notify_send_critical(
-                "'pista feed exited!'",
-                "\"$body\"",
-            )
+            scripts::notify_send_critical("'pista feed exited!'", "\"$body\"",)
         )?;
         crate::fs::set_permissions(&run, PERM_OWNER_RWX)?;
         run.sync_all()?;
@@ -190,8 +187,7 @@ fn start_slot(
             len
         }
     };
-    let pista_slot_spec =
-        format!("{:?} {} {}", slot_pipe, slot_len, slot.ttl);
+    let pista_slot_spec = format!("{:?} {} {}", slot_pipe, slot_len, slot.ttl);
     Ok(pista_slot_spec)
 }
 

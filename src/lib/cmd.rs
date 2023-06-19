@@ -15,15 +15,17 @@ use crate::{
 };
 
 const PERM_OWNER_RWX: u32 = 0o100 + 0o200 + 0o400;
+const NAME_CMD: &str = "cmd";
+const NAME_RUN: &str = "run";
+const NAME_OUT: &str = "out";
+const NAME_ERR: &str = "err";
 
 pub fn status(cfg: &Cfg, tmux: &Tmux) -> Result<()> {
-    let name_run = "run"; // TODO top level const
-    let name_err = "err"; // TODO top level const
     let dir = &cfg.slots_fifos_dir;
     let fg: HashSet<PathBuf> = process::list()?
         .into_iter()
         .filter_map(|proc| match proc.tty {
-            Some(tty) if proc.fg && proc.comm == name_run => Some(tty),
+            Some(tty) if proc.fg && proc.comm == NAME_RUN => Some(tty),
             _ => None,
         })
         .collect();
@@ -39,10 +41,10 @@ pub fn status(cfg: &Cfg, tmux: &Tmux) -> Result<()> {
     {
         assert_eq!(window_id, pane_id);
         let log_file = match window_id {
-            0 => dir.join(name_err),
+            0 => dir.join(NAME_ERR),
             _ => dir
                 .join(slot_dir_name(window_id, &window_name))
-                .join(name_err),
+                .join(NAME_ERR),
         };
         // TODO Per log level? How to not assume log format?
         let log_lines = fs::read_to_string(log_file)?.lines().count();
@@ -68,30 +70,27 @@ pub fn restart(cfg: &Cfg, tmux: &mut Tmux) -> Result<()> {
 }
 
 pub fn start(cfg: &Cfg, tmux: &mut Tmux) -> Result<()> {
-    let name_run = "run";
-    let name_out = "out";
-    let name_err = "err";
     let dir = &cfg.slots_fifos_dir;
     fs::create_dir_all(dir)?;
     tmux.new_session(dir)?;
     let pista_slot_specs = start_slots(cfg, tmux)?;
     {
-        let mut run = File::create(dir.join(name_run))?;
+        let mut run = File::create(dir.join(NAME_RUN))?;
         writeln!(run, "#! /bin/bash")?;
         writeln!(
             run,
             "pista {} {} >> ./{} 2>> ./{};",
             &cfg.pista.to_arg_str(),
             pista_slot_specs.join(" "),
-            name_out,
-            name_err
+            NAME_OUT,
+            NAME_ERR
         )?;
         writeln!(run, "code=$?")?;
         writeln!(
             run,
             "log=$({})",
             &scripts::tail_log(
-                name_err,
+                NAME_ERR,
                 cfg.notifications.log_lines_limit,
                 &cfg.notifications.indent,
                 cfg.notifications.width_limit
@@ -107,7 +106,7 @@ pub fn start(cfg: &Cfg, tmux: &mut Tmux) -> Result<()> {
         run.sync_all()?;
     }
     let term = tmux.zeroth_terminal("pista")?;
-    tmux.send_text(&term, &format!("./{}", name_run))?;
+    tmux.send_text(&term, &format!("./{}", NAME_RUN))?;
     tmux.send_enter(&term)
 }
 
@@ -132,31 +131,27 @@ fn start_slot(
     slot_name: &str,
     tmux: &mut Tmux,
 ) -> Result<String> {
-    let name_cmd = "cmd";
-    let name_run = "run";
-    let name_out = "out";
-    let name_err = "err";
     std::fs::create_dir_all(slot_dir)?;
-    let slot_pipe = slot_dir.join(name_out);
+    let slot_pipe = slot_dir.join(NAME_OUT);
     crate::fs::mkfifo(&slot_pipe)?;
     {
-        let mut cmd = File::create(slot_dir.join(name_cmd))?;
+        let mut cmd = File::create(slot_dir.join(NAME_CMD))?;
         writeln!(cmd, "#! {}", slot.interpreter.display())?;
         writeln!(cmd, "{}", slot.cmd)?;
         crate::fs::set_permissions(&cmd, PERM_OWNER_RWX)?;
         cmd.sync_all()?;
     }
     {
-        let mut run = File::create(slot_dir.join(name_run))?;
+        let mut run = File::create(slot_dir.join(NAME_RUN))?;
         writeln!(run, "#! /bin/bash")?;
         writeln!(run, "# This script wraps the user-provided script,")?;
-        writeln!(run, "# which was written to ./{},", name_cmd)?;
+        writeln!(run, "# which was written to ./{},", NAME_CMD)?;
         writeln!(run, "# adding output redirection and")?;
         writeln!(run, "# a notification in case of an unexpected exit.")?;
         writeln!(
             run,
             "cd {:?} && ./{} > ./{} 2>> ./{};",
-            slot_dir, name_cmd, name_out, name_err
+            slot_dir, NAME_CMD, NAME_OUT, NAME_ERR
         )?;
         writeln!(run, "code=$?")?;
         writeln!(run, "slot_name={}", slot_name)?;
@@ -164,7 +159,7 @@ fn start_slot(
             run,
             "log=$({})",
             &scripts::tail_log(
-                name_err,
+                NAME_ERR,
                 notif.log_lines_limit,
                 &notif.indent,
                 notif.width_limit
@@ -180,7 +175,7 @@ fn start_slot(
         run.sync_all()?;
     }
     let term = tmux.new_terminal(slot_dir, slot_name)?;
-    let dot_slash_run = format!("./{}", name_run);
+    let dot_slash_run = format!("./{}", NAME_RUN);
     tmux.send_text(&term, &dot_slash_run)?;
     tmux.send_enter(&term)?;
     let slot_len = match slot.len {

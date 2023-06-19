@@ -1,17 +1,63 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{anyhow, Error, Result};
 
 #[derive(Debug)]
 pub struct Terminal {
     session: String,
-    window: usize,
-    pane: usize,
+    window_id: usize,
+    pane_id: usize,
 }
 
 impl std::fmt::Display for Terminal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}.{}", self.session, self.window, self.pane)
+        write!(f, "{}:{}.{}", self.session, self.window_id, self.pane_id)
+    }
+}
+
+#[derive(Debug)]
+pub struct PaneInfo {
+    pub window_id: usize,
+    pub window_name: String,
+    pub tty: PathBuf,
+    pub pane_id: usize,
+}
+
+impl std::str::FromStr for PaneInfo {
+    type Err = Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let fields: Vec<&str> = s.split_whitespace().collect();
+        match &fields[..] {
+            [window_id, window_name, tty, pane_id] => {
+                let window_id = window_id
+                    .strip_prefix('@')
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "Invalid window_id - missing prefix: {:?}",
+                            window_id
+                        )
+                    })?
+                    .parse()?;
+                let pane_id = pane_id
+                    .strip_prefix('%')
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "Invalid pane_id - missing prefix: {:?}",
+                            pane_id
+                        )
+                    })?
+                    .parse()?;
+                let pane_info = PaneInfo {
+                    pane_id,
+                    window_id,
+                    window_name: window_name.to_string(),
+                    tty: PathBuf::from_str(tty)?,
+                };
+                Ok(pane_info)
+            }
+            _ => Err(anyhow!("Invalid PaneInfo string: {:?}", s)),
+        }
     }
 }
 
@@ -35,8 +81,8 @@ impl Tmux {
         let window = 0;
         let term = Terminal {
             session: self.session.clone(),
-            window,
-            pane: 0,
+            window_id: window,
+            pane_id: 0,
         };
         self.rename_window(window, name)?;
         Ok(term)
@@ -51,23 +97,27 @@ impl Tmux {
         self.cur_window += 1;
         let term = Terminal {
             session: self.session.clone(),
-            window: self.cur_window,
-            pane: 0,
+            window_id: self.cur_window,
+            pane_id: 0,
         };
         tracing::debug!("Allocated terminal: {:?}", term);
         Ok(term)
     }
 
-    pub fn status(&self) -> Result<()> {
-        println!(
-            "\
-            socket name  : {:?},\n\
-            session      : {:?},\n\
-            tmux windows :\n\
-            ",
-            self.sock, self.session
-        );
-        self.run(&["list-windows", "-a"])
+    pub fn list_panes(&self) -> Result<Vec<PaneInfo>> {
+        let out = self.exec(&[
+            "list-panes",
+            "-s",
+            "-t",
+            &self.session,
+            "-F",
+            "#{window_id} #{window_name} #{pane_tty} #{pane_id}",
+        ])?;
+        let mut panes = Vec::new();
+        for line in out.lines() {
+            panes.push(line.parse()?)
+        }
+        Ok(panes)
     }
 
     #[rustfmt::skip] // I want each option-value pair on the same line.
@@ -132,6 +182,11 @@ impl Tmux {
     fn rename_window(&self, window: usize, name: &str) -> Result<()> {
         let target = format!("{}:{}", self.session, window);
         self.run(&["rename-window", "-t", &target, name])
+    }
+
+    fn exec(&self, args: &[&str]) -> Result<String> {
+        let args = [&["-L", &self.sock][..], args].concat();
+        crate::process::exec("tmux", &args[..])
     }
 
     fn run(&self, args: &[&str]) -> Result<()> {

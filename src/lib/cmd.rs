@@ -1,22 +1,61 @@
 use std::{
+    collections::HashSet,
     fs::{self, File},
     io::Write,
     iter::zip,
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use anyhow::Result;
 
 use crate::{
     cfg::{self, Cfg},
-    scripts,
-    tmux::Tmux,
+    process, scripts,
+    tmux::{self, Tmux},
 };
 
 const PERM_OWNER_RWX: u32 = 0o100 + 0o200 + 0o400;
 
-pub fn status(tmux: &Tmux) -> Result<()> {
-    tmux.status()
+pub fn status(cfg: &Cfg, tmux: &Tmux) -> Result<()> {
+    let name_run = "run"; // TODO top level const
+    let name_err = "err"; // TODO top level const
+    let dir = &cfg.slots_fifos_dir;
+    let fg: HashSet<PathBuf> = process::list()?
+        .into_iter()
+        .filter_map(|proc| match proc.tty {
+            Some(tty) if proc.fg && proc.comm == name_run => Some(tty),
+            _ => None,
+        })
+        .collect();
+    let mut panes = tmux.list_panes()?;
+    panes.sort_by(|a, b| a.window_id.cmp(&b.window_id));
+    println!("POSITION NAME RUNNING? LOG_LINES");
+    for tmux::PaneInfo {
+        window_id,
+        window_name,
+        tty,
+        pane_id,
+    } in panes
+    {
+        assert_eq!(window_id, pane_id);
+        let log_file = match window_id {
+            0 => dir.join(name_err),
+            _ => dir
+                .join(slot_dir_name(window_id, &window_name))
+                .join(name_err),
+        };
+        // TODO Per log level? How to not assume log format?
+        let log_lines = fs::read_to_string(log_file)?.lines().count();
+        let is_running = fg.get(&tty).map_or("NO", |_| "YES");
+        println!(
+            "{} {} {} {}",
+            &window_id, &window_name, is_running, log_lines
+        );
+        if window_id == 0 {
+            assert_eq!("pista", window_name);
+        }
+    }
+    Ok(())
 }
 
 pub fn attach(tmux: &Tmux) -> Result<()> {
@@ -185,14 +224,18 @@ fn start_slot(
 fn start_slots(cfg: &Cfg, tmux: &mut Tmux) -> Result<Vec<String>> {
     let mut pista_slot_specs = Vec::new();
     for (i, s) in zip(1.., cfg.pista.slots.iter()) {
-        let (slot_dir_name, slot_name) = match s.name {
-            None => (i.to_string(), i.to_string()),
-            Some(ref name) => (i.to_string() + "-" + name, name.to_string()),
+        let slot_name = match s.name {
+            None => i.to_string(),
+            Some(ref name) => name.to_string(),
         };
-        let slot_dir = cfg.slots_fifos_dir.join(slot_dir_name);
+        let slot_dir = cfg.slots_fifos_dir.join(slot_dir_name(i, &slot_name));
         let slot_spec =
             start_slot(&cfg.notifications, s, &slot_dir, &slot_name, tmux)?;
         pista_slot_specs.push(slot_spec);
     }
     Ok(pista_slot_specs)
+}
+
+fn slot_dir_name(position: usize, name: &str) -> String {
+    format!("{}-{}", position, name)
 }

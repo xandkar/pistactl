@@ -9,7 +9,7 @@ fn main() -> Result<()> {
     tracing::debug!("cfg: {:#?}", &cfg);
     let mut tmux = Tmux::new(&cfg.sock, &cfg.session);
     match &cli.command {
-        cli::Cmd::Status => cmd::status(&tmux),
+        cli::Cmd::Status => cmd::status(&cfg, &tmux),
         cli::Cmd::Attach => cmd::attach(&tmux),
         cli::Cmd::Start => cmd::start(&cfg, &mut tmux),
         cli::Cmd::Stop => cmd::stop(&cfg, &tmux),

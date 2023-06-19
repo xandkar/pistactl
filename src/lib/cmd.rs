@@ -67,7 +67,7 @@ pub fn start(cfg: &Cfg, tmux: &mut Tmux) -> Result<()> {
         crate::fs::set_permissions(&run, PERM_OWNER_RWX)?;
         run.sync_all()?;
     }
-    let term = tmux.zeroth_terminal();
+    let term = tmux.zeroth_terminal("pista")?;
     tmux.send_text(&term, &format!("./{}", name_run))?;
     tmux.send_enter(&term)
 }

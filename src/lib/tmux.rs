@@ -31,12 +31,15 @@ impl Tmux {
         }
     }
 
-    pub fn zeroth_terminal(&mut self) -> Terminal {
-        Terminal {
+    pub fn zeroth_terminal(&mut self, name: &str) -> Result<Terminal> {
+        let window = 0;
+        let term = Terminal {
             session: self.session.clone(),
-            window: 0,
+            window,
             pane: 0,
-        }
+        };
+        self.rename_window(window, name)?;
+        Ok(term)
     }
 
     pub fn new_terminal(
@@ -124,6 +127,11 @@ impl Tmux {
             "-n", name,
             "-t", &self.session,
         ])
+    }
+
+    fn rename_window(&self, window: usize, name: &str) -> Result<()> {
+        let target = format!("{}:{}", self.session, window);
+        self.run(&["rename-window", "-t", &target, name])
     }
 
     fn run(&self, args: &[&str]) -> Result<()> {

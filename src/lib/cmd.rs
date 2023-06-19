@@ -1,11 +1,11 @@
 use std::{
     fs::{self, File},
-    io::{BufRead, BufReader, Write},
+    io::Write,
     iter::zip,
     path::Path,
 };
 
-use anyhow::{anyhow, Error, Result};
+use anyhow::Result;
 
 use crate::{
     cfg::{self, Cfg},
@@ -86,15 +86,6 @@ pub fn stop(cfg: &Cfg, tmux: &Tmux) -> Result<()> {
     Ok(())
 }
 
-/// Reads first line from a file.
-fn head(path: &Path) -> Result<String> {
-    match BufReader::new(File::open(path)?).lines().next() {
-        None => Err(anyhow!("FIFO empty and did not block: {:?}", path)),
-        Some(Err(e)) => Err(Error::from(e)),
-        Some(Ok(line)) => Ok(line),
-    }
-}
-
 fn start_slot(
     notif: &cfg::Notifications,
     slot: &cfg::Slot,
@@ -170,7 +161,7 @@ fn start_slot(
                 &slot_pipe,
                 &slot.cmd,
             );
-            let head: String = head(&slot_pipe)?;
+            let head: String = crate::fs::head(&slot_pipe)?;
             // pista expects length in bytes. String::len already counts bytes,
             // but I just want to be super-explicit:
             let len = head.as_bytes().len();

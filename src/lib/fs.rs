@@ -1,6 +1,11 @@
-use std::{fs::File, os::unix, path::Path};
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+    os::unix,
+    path::Path,
+};
 
-use anyhow::Result;
+use anyhow::{anyhow, Error, Result};
 
 use crate::process;
 
@@ -26,4 +31,13 @@ pub fn is_fifo(path: &Path) -> Result<bool> {
         metadata.file_type().is_fifo()
     };
     Ok(is_fifo)
+}
+
+/// Reads first line from a file.
+pub fn head(path: &Path) -> Result<String> {
+    match BufReader::new(File::open(path)?).lines().next() {
+        None => Err(anyhow!("FIFO empty and did not block: {:?}", path)),
+        Some(Err(e)) => Err(Error::from(e)),
+        Some(Ok(line)) => Ok(line),
+    }
 }

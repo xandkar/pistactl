@@ -19,6 +19,7 @@ const NAME_CMD: &str = "cmd";
 const NAME_RUN: &str = "run";
 const NAME_OUT: &str = "out";
 const NAME_ERR: &str = "err";
+const NAME_PISTA: &str = "pista";
 
 pub fn status(cfg: &Cfg, tmux: &Tmux) -> Result<()> {
     let dir = &cfg.slots_fifos_dir;
@@ -40,21 +41,32 @@ pub fn status(cfg: &Cfg, tmux: &Tmux) -> Result<()> {
     } in panes
     {
         assert_eq!(window_id, pane_id);
-        let log_file = match window_id {
-            0 => dir.join(NAME_ERR),
-            _ => dir
-                .join(slot_dir_name(window_id, &window_name))
-                .join(NAME_ERR),
-        };
+        let log_file = dir
+            .join(slot_dir_name(window_id, &window_name))
+            .join(NAME_ERR);
         // TODO Per log level? How to not assume log format?
-        let log_lines = fs::read_to_string(log_file)?.lines().count();
+        let log_lines = match fs::read_to_string(&log_file) {
+            Ok(log) => log.lines().count(),
+            Err(err) => {
+                tracing::error!(
+                    "Failed to read log file: {:?}. Error: {:?}",
+                    &log_file,
+                    &err
+                );
+                0
+            }
+        };
         let is_running = fg.get(&tty).map_or("NO", |_| "YES");
         println!(
             "{} {} {} {}",
             &window_id, &window_name, is_running, log_lines
         );
-        if window_id == 0 {
-            assert_eq!("pista", window_name);
+        if window_id == 0 && window_name != NAME_PISTA {
+            tracing::warn!(
+                "Expected zeroth window name to be {:?}, but it was: {:?}",
+                NAME_PISTA,
+                window_name
+            );
         }
     }
     Ok(())
@@ -70,12 +82,22 @@ pub fn restart(cfg: &Cfg, tmux: &mut Tmux) -> Result<()> {
 }
 
 pub fn start(cfg: &Cfg, tmux: &mut Tmux) -> Result<()> {
-    let dir = &cfg.slots_fifos_dir;
-    fs::create_dir_all(dir)?;
-    tmux.new_session(dir)?;
+    let base_dir = &cfg.slots_fifos_dir;
+    fs::create_dir_all(base_dir)?;
+    tmux.new_session(base_dir)?;
     let pista_slot_specs = start_slots(cfg, tmux)?;
+    start_pista(cfg, tmux, pista_slot_specs)
+}
+
+fn start_pista(
+    cfg: &Cfg,
+    tmux: &Tmux,
+    pista_slot_specs: Vec<String>,
+) -> Result<()> {
+    let pista_dir = cfg.slots_fifos_dir.join(slot_dir_name(0, NAME_PISTA));
+    std::fs::create_dir_all(&pista_dir)?;
     {
-        let mut run = File::create(dir.join(NAME_RUN))?;
+        let mut run = File::create(pista_dir.join(NAME_RUN))?;
         writeln!(run, "#! /bin/bash")?;
         writeln!(
             run,
@@ -105,7 +127,7 @@ pub fn start(cfg: &Cfg, tmux: &mut Tmux) -> Result<()> {
         crate::fs::set_permissions(&run, PERM_OWNER_RWX)?;
         run.sync_all()?;
     }
-    let term = tmux.zeroth_terminal("pista")?;
+    let term = tmux.zeroth_terminal(&pista_dir, NAME_PISTA)?;
     tmux.send_text(&term, &format!("./{}", NAME_RUN))?;
     tmux.send_enter(&term)
 }

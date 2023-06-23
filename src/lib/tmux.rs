@@ -77,7 +77,11 @@ impl Tmux {
         }
     }
 
-    pub fn zeroth_terminal(&mut self, name: &str) -> Result<Terminal> {
+    pub fn zeroth_terminal(
+        &self,
+        working_directory: &Path,
+        name: &str,
+    ) -> Result<Terminal> {
         let window = 0;
         let term = Terminal {
             session: self.session.clone(),
@@ -85,6 +89,7 @@ impl Tmux {
             pane_id: 0,
         };
         self.rename_window(window, name)?;
+        self.cd(&term, working_directory)?;
         Ok(term)
     }
 
@@ -182,6 +187,12 @@ impl Tmux {
     fn rename_window(&self, window: usize, name: &str) -> Result<()> {
         let target = format!("{}:{}", self.session, window);
         self.run(&["rename-window", "-t", &target, name])
+    }
+
+    fn cd(&self, term: &Terminal, dir: &Path) -> Result<()> {
+        self.send_text(term, &format!("cd {:?}", dir))?;
+        self.send_enter(term)?;
+        Ok(())
     }
 
     fn exec(&self, args: &[&str]) -> Result<String> {

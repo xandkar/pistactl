@@ -5,7 +5,7 @@ use std::{
     path::Path,
 };
 
-use anyhow::{anyhow, Error, Result};
+use anyhow::{Error, Result};
 
 use crate::process;
 
@@ -34,10 +34,13 @@ pub fn is_fifo(path: &Path) -> Result<bool> {
 }
 
 /// Reads first line from a file.
-pub fn head(path: &Path) -> Result<String> {
+pub fn head(path: &Path) -> Result<Option<String>> {
     match BufReader::new(File::open(path)?).lines().next() {
-        None => Err(anyhow!("FIFO empty and did not block: {:?}", path)),
+        None => {
+            tracing::warn!("FIFO empty and did not block: {:?}", path);
+            Ok(None)
+        }
         Some(Err(e)) => Err(Error::from(e)),
-        Some(Ok(line)) => Ok(line),
+        Some(Ok(line)) => Ok(Some(line)),
     }
 }

@@ -217,21 +217,37 @@ fn start_slot(
                 &slot_pipe,
                 &slot.cmd,
             );
-            let head: String = crate::fs::head(&slot_pipe)?;
-            // pista expects length in bytes. String::len already counts bytes,
-            // but I just want to be super-explicit:
-            let len = head.as_bytes().len();
-            tracing::info!(
-                "Read slot length: {}. Restarting command: {:?}",
-                len,
-                &slot.cmd
-            );
-            // XXX Restart just in case the cmd's refresh interval is very long
-            //     and the slot will be surprisingly empty.
-            tmux.send_interrupt(&term)?;
-            tmux.send_text(&term, &dot_slash_run)?;
-            tmux.send_enter(&term)?;
-            len
+            match crate::fs::head(&slot_pipe)? {
+                None => {
+                    let default_len = 0;
+                    tracing::error!(
+                        "Failed to read slot length from pipe: {:?}. \
+                        Defaulting to: {:?}. \
+                        Likely reason is that the corresponding command failed. \
+                        See corresponding \"err\" file and/or \
+                        attach to the session to debug.",
+                        &slot_pipe,
+                        &default_len
+                    );
+                    default_len
+                }
+                Some(head) => {
+                    // pista expects length in bytes. String::len already counts bytes,
+                    // but I just want to be super-explicit:
+                    let len = head.as_bytes().len();
+                    tracing::info!(
+                        "Read slot length: {}. Restarting command: {:?}",
+                        len,
+                        &slot.cmd
+                    );
+                    // XXX Restart just in case the cmd's refresh interval is very long
+                    //     and the slot will be surprisingly empty.
+                    tmux.send_interrupt(&term)?;
+                    tmux.send_text(&term, &dot_slash_run)?;
+                    tmux.send_enter(&term)?;
+                    len
+                }
+            }
         }
     };
     let pista_slot_spec = format!("{:?} {} {}", slot_pipe, slot_len, slot.ttl);

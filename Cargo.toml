@@ -20,3 +20,14 @@ time = { version = "0.3.21", features = ["macros"] }
 toml = "0.7.4"
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "local-time"] }
+
+###############################################################################
+# binary size optimizations
+# https://github.com/johnthagen/min-sized-rust
+###############################################################################
+[profile.release]
+codegen-units = 1  # Disable parallelization, allowing maximum size reduction.
+lto = true         # Enable Link Time Optimizations.
+# panic = "abort"  # Disable stack unwind.
+# strip = true     # Strip symbols.
+# opt-level = "z"  # Optimize for size.

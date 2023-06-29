@@ -12,7 +12,7 @@ mod file {
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Error, Result};
+use anyhow::{Context, Result};
 use expanduser::expanduser;
 
 #[derive(Debug)]
@@ -66,12 +66,9 @@ pub struct Slot {
 
 impl Cfg {
     pub fn from_file(path: &Path) -> Result<Self> {
-        let data: String = std::fs::read_to_string(path).map_err(|e| {
-            Error::from(e).context(format!("Failed to read from: {:?}", path))
-        })?;
-        let file: file::Cfg = toml::from_str(&data).map_err(|e| {
-            Error::from(e)
-                .context(format!("Failed to parse TOML from: {:?}", path))
+        let data: String = crate::fs::read_to_string(path)?;
+        let file: file::Cfg = toml::from_str(&data).with_context(|| {
+            format!("Failed to parse TOML from: {:?}", path)
         })?;
         let default = Self::default()?;
         let cfg = Self {

@@ -1,13 +1,23 @@
 use std::{
+    fmt::Debug,
     fs::File,
     io::{BufRead, BufReader},
     os::unix,
     path::Path,
 };
 
-use anyhow::{Error, Result};
+use anyhow::{Context, Error, Result};
 
 use crate::process;
+
+// ----------------------------------------------------------------------------
+// API
+// ----------------------------------------------------------------------------
+
+pub fn file_create<P: AsRef<Path> + Debug>(path: P) -> Result<File> {
+    File::create(&path)
+        .with_context(|| format!("Failed to create file: {:?}", &path))
+}
 
 pub fn mkfifo(path: &Path) -> Result<()> {
     let path = path.to_string_lossy();
@@ -15,13 +25,9 @@ pub fn mkfifo(path: &Path) -> Result<()> {
 }
 
 pub fn set_permissions(file: &File, perms_sum: u32) -> Result<()> {
-    let mut perms = file.metadata()?.permissions();
-    {
-        use unix::fs::PermissionsExt;
-        perms.set_mode(perms_sum);
-    }
-    file.set_permissions(perms)?;
-    Ok(())
+    _set_permissions(file, perms_sum).with_context(|| {
+        format!("Failed to set permissions ({:?}) for {:?}", perms_sum, file)
+    })
 }
 
 pub fn is_fifo(path: &Path) -> Result<bool> {
@@ -43,4 +49,28 @@ pub fn head(path: &Path) -> Result<Option<String>> {
         Some(Err(e)) => Err(Error::from(e)),
         Some(Ok(line)) => Ok(Some(line)),
     }
+}
+
+pub fn read_to_string(path: &Path) -> Result<String> {
+    std::fs::read_to_string(path)
+        .with_context(|| format!("Failed to read from path: {:?}", path))
+}
+
+pub fn create_dir_all(path: &Path) -> Result<()> {
+    std::fs::create_dir_all(path)
+        .with_context(|| format!("Failed to create dirs for path: {:?}", path))
+}
+
+// ----------------------------------------------------------------------------
+// Internal
+// ----------------------------------------------------------------------------
+
+fn _set_permissions(file: &File, perms_sum: u32) -> Result<()> {
+    let mut perms = file.metadata()?.permissions();
+    {
+        use unix::fs::PermissionsExt;
+        perms.set_mode(perms_sum);
+    }
+    file.set_permissions(perms)?;
+    Ok(())
 }

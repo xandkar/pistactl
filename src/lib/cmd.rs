@@ -1,6 +1,5 @@
 use std::{
     collections::HashSet,
-    fs::{self, File},
     io::Write,
     iter::zip,
     path::{Path, PathBuf},
@@ -45,7 +44,7 @@ pub fn status(cfg: &Cfg, tmux: &Tmux) -> Result<()> {
             .join(slot_dir_name(window_id, &window_name))
             .join(NAME_ERR);
         // TODO Per log level? How to not assume log format?
-        let log_lines = match fs::read_to_string(&log_file) {
+        let log_lines = match crate::fs::read_to_string(&log_file) {
             Ok(log) => log.lines().count(),
             Err(err) => {
                 tracing::error!(
@@ -83,7 +82,7 @@ pub fn restart(cfg: &Cfg, tmux: &mut Tmux) -> Result<()> {
 
 pub fn start(cfg: &Cfg, tmux: &mut Tmux) -> Result<()> {
     let base_dir = &cfg.slots_fifos_dir;
-    fs::create_dir_all(base_dir)?;
+    crate::fs::create_dir_all(base_dir)?;
     tmux.new_session(base_dir)?;
     let pista_slot_specs = start_slots(cfg, tmux)?;
     start_pista(cfg, tmux, pista_slot_specs)
@@ -95,9 +94,9 @@ fn start_pista(
     pista_slot_specs: Vec<String>,
 ) -> Result<()> {
     let pista_dir = cfg.slots_fifos_dir.join(slot_dir_name(0, NAME_PISTA));
-    std::fs::create_dir_all(&pista_dir)?;
+    crate::fs::create_dir_all(&pista_dir)?;
     {
-        let mut run = File::create(pista_dir.join(NAME_RUN))?;
+        let mut run = crate::fs::file_create(pista_dir.join(NAME_RUN))?;
         writeln!(run, "#! /bin/bash")?;
         writeln!(
             run,
@@ -136,7 +135,7 @@ pub fn stop(cfg: &Cfg, tmux: &Tmux) -> Result<()> {
     if let Err(err) = tmux.kill_session() {
         tracing::error!("Failure in kill session: {:?}", err);
     }
-    if let Err(err) = fs::remove_dir_all(&cfg.slots_fifos_dir) {
+    if let Err(err) = std::fs::remove_dir_all(&cfg.slots_fifos_dir) {
         tracing::error!(
             "Failure in removal of slot directory: {:?}. Error: {:?}",
             &cfg.slots_fifos_dir,
@@ -153,18 +152,18 @@ fn start_slot(
     slot_name: &str,
     tmux: &mut Tmux,
 ) -> Result<String> {
-    std::fs::create_dir_all(slot_dir)?;
+    crate::fs::create_dir_all(slot_dir)?;
     let slot_pipe = slot_dir.join(NAME_OUT);
     crate::fs::mkfifo(&slot_pipe)?;
     {
-        let mut cmd = File::create(slot_dir.join(NAME_CMD))?;
+        let mut cmd = crate::fs::file_create(slot_dir.join(NAME_CMD))?;
         writeln!(cmd, "#! {}", slot.interpreter.display())?;
         writeln!(cmd, "{}", slot.cmd)?;
         crate::fs::set_permissions(&cmd, PERM_OWNER_RWX)?;
         cmd.sync_all()?;
     }
     {
-        let mut run = File::create(slot_dir.join(NAME_RUN))?;
+        let mut run = crate::fs::file_create(slot_dir.join(NAME_RUN))?;
         writeln!(run, "#! /bin/bash")?;
         writeln!(run, "# This script wraps the user-provided script,")?;
         writeln!(run, "# which was written to ./{},", NAME_CMD)?;

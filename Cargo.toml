@@ -1,6 +1,6 @@
 [package]
 name = "pistactl"
-version = "0.8.2"
+version = "0.8.1"
 edition = "2021"
 license-file = "LICENSE"
 repository = "https://github.com/xandkar/pistactl"

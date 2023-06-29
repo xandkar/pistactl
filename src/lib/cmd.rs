@@ -142,6 +142,19 @@ pub fn stop(cfg: &Cfg, tmux: &Tmux) -> Result<()> {
             err
         );
     }
+    match crate::x11::X11::open() {
+        Ok(x11) => {
+            if let Err(err) = x11.set_root_window_name("") {
+                tracing::error!(
+                    "Failed to clear X11 root window title: {:?}",
+                    err
+                );
+            }
+        }
+        Err(err) => {
+            tracing::error!("Failed to open X11 display: {:?}", err);
+        }
+    };
     Ok(())
 }
 

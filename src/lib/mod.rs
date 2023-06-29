@@ -6,6 +6,7 @@ pub mod tmux;
 
 mod process;
 mod scripts;
+mod x11;
 
 #[macro_export]
 macro_rules! NAME {

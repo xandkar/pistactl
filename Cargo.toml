@@ -1,6 +1,6 @@
 [package]
 name = "pistactl"
-version = "0.8.1"
+version = "0.9.0"
 edition = "2021"
 license-file = "LICENSE"
 repository = "https://github.com/xandkar/pistactl"
@@ -20,6 +20,7 @@ time = { version = "0.3.21", features = ["macros"] }
 toml = "0.7.4"
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "local-time"] }
+x11 = { version = "2.21.0", features = ["xlib"] }
 
 ###############################################################################
 # binary size optimizations

@@ -4,6 +4,9 @@ use std::{
     io::{BufRead, BufReader},
     os::unix,
     path::Path,
+    sync::mpsc,
+    thread,
+    time::Duration,
 };
 
 use anyhow::{Context, Error, Result};
@@ -40,14 +43,34 @@ pub fn is_fifo(path: &Path) -> Result<bool> {
 }
 
 /// Reads first line from a file.
-pub fn head(path: &Path) -> Result<Option<String>> {
-    match BufReader::new(File::open(path)?).lines().next() {
-        None => {
+pub fn head(path: &Path, timeout: Duration) -> Result<Option<String>> {
+    let file = File::open(path)?;
+    let mut lines = BufReader::new(file).lines();
+    let (sender, receiver) = mpsc::channel();
+    {
+        let path = path.to_owned();
+        thread::spawn(move || {
+            let line_result_opt = lines.next();
+            sender.send(line_result_opt).unwrap_or_else(|err| {
+                tracing::error!(
+                    "Failure to send line read from {:?}. Error: {:?}",
+                    &path,
+                    err
+                )
+            });
+        });
+    }
+    match receiver.recv_timeout(timeout) {
+        Ok(Some(Err(e))) => Err(Error::from(e)),
+        Ok(Some(Ok(line))) => Ok(Some(line)),
+        Ok(None) => {
             tracing::warn!("FIFO empty and did not block: {:?}", path);
             Ok(None)
         }
-        Some(Err(e)) => Err(Error::from(e)),
-        Some(Ok(line)) => Ok(Some(line)),
+        Err(_) => {
+            tracing::error!("Timed out waiting to read: {:?}", path);
+            Ok(None)
+        }
     }
 }
 

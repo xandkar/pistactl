@@ -3,6 +3,7 @@ use std::{
     io::Write,
     iter::zip,
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 use anyhow::Result;
@@ -229,7 +230,7 @@ fn start_slot(
                 &slot_pipe,
                 &slot.cmd,
             );
-            match crate::fs::head(&slot_pipe)? {
+            match crate::fs::head(&slot_pipe, Duration::from_secs(5))? {
                 None => {
                     let default_len = 0;
                     tracing::error!(
